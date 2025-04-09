@@ -377,7 +377,7 @@
 
             try {
                 // Prepare the prompt with context and query
-                const prompt = `Based on our knowledge base about Wolayta, regarding your question "${query}",\n\n${context}\n\nPlease provide a response.`;
+                const prompt = `${context}\n\nPlease provide a response to: "${query}"`;
                 
                 // Here you would make the actual API call to your AI service
                 // For demonstration, we'll simulate an AI response by processing the context
@@ -420,7 +420,7 @@
                         
                         // Format the response as a conversation with the knowledge base
                         const formattedQuery = query.charAt(0).toUpperCase() + query.slice(1);
-                        aiResponse = `Based on our knowledge base about Wolayta, regarding your question "${formattedQuery}": ${aiResponse}`;
+                        aiResponse = `${aiResponse}`;
                         
                         // Add follow-up suggestions based on the context
                         const suggestedTopics = ['attractions', 'culture', 'food', 'accommodation', 'transportation']
