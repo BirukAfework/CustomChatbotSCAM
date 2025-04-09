@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grok Chatbot with Custom Knowledge Base</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .chat-container {
+            animation: slideIn 0.5s ease-out, glow 3s infinite alternate;
+            position: relative;
+            overflow: hidden;
+
+            &::before {
+                content: '';
+                position: absolute;
+                top: -50%;
+                left: -50%;
+                width: 200%;
+                height: 200%;
+                background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%);
+                animation: rotate 10s linear infinite;
+                pointer-events: none;
+            }
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            border: none;
+            border-radius: 16px;
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            backdrop-filter: blur(10px);
+        }
+        .chat-box {
+            height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            scroll-behavior: smooth;
+            position: relative;
+        }
+
+        .chat-box::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .chat-box::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+            border-radius: 4px;
+        }
+
+        .chat-box::-webkit-scrollbar-thumb {
+            background: rgba(0,180,219,0.5);
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .chat-box::-webkit-scrollbar-thumb:hover {
+            background: rgba(0,180,219,0.8);
+        }
+        .message {
+            margin: 10px 0;
+            padding: 12px 16px;
+            border-radius: 12px;
+            max-width: 80%;
+            animation: fadeIn 0.3s ease-in-out;
+            position: relative;
+            line-height: 1.4;
+            transform-origin: bottom;
+            transition: all 0.3s ease;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .message:hover {
+            transform: scale(1.02);
+        }
+
+        .typing-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #f5f7fa, #e3eeff);
+            border-radius: 12px;
+            margin: 10px 0;
+        }
+
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            margin: 0 2px;
+            background-color: #2c3e50;
+            border-radius: 50%;
+            display: inline-block;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 10px 30px rgba(0,0,0,0.15); }
+            to { box-shadow: 0 10px 40px rgba(110,142,251,0.3); }
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .user-message {
+            background: linear-gradient(135deg, #00B4DB, #0083B0);
+            color: white;
+            text-align: right;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 3px 15px rgba(0,180,219,0.2);
+        }
+        .bot-message {
+            background: linear-gradient(135deg, #f5f7fa, #e3eeff);
+            color: #2c3e50;
+            text-align: left;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 3px 15px rgba(227,238,255,0.5);
+        }
+        .input-area {
+            display: flex;
+            padding: 10px 0;
+        }
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 12px 16px;
+            border: 2px solid #e1e8ed;
+            border-radius: 12px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+        
+        input[type="text"]:focus {
+            border-color: #00B4DB;
+            box-shadow: 0 0 0 3px rgba(0,180,219,0.1);
+        }
+        button {
+            padding: 12px 20px;
+            margin-left: 10px;
+            background: linear-gradient(135deg, #00B4DB, #0083B0);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            transform-origin: center;
+        }
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,131,176,0.3);
+        }
+    </style>
+</head>
+<body>
+    <style>
+        .quick-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+            justify-content: center;
+        }
+        .quick-button {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        .quick-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(110,142,251,0.3);
+        }
+    </style>
+    <div class="chat-container">
+        <div class="quick-buttons">
+            <button class="quick-button" onclick="sendQuickQuery('Tell me about Wolayta tourism')">Tourism Overview</button>
+            <button class="quick-button" onclick="sendQuickQuery('What are the attractions in Wolayta?')">Attractions</button>
+            <button class="quick-button" onclick="sendQuickQuery('What food and cuisine can I find in Wolayta?')">Food & Cuisine</button>
+            <button class="quick-button" onclick="sendQuickQuery('What accommodation options are available in Wolayta?')">Accommodation</button>
+            <button class="quick-button" onclick="sendQuickQuery('How can I book a trip to Wolayta?')">How to Book</button>
+            <button class="quick-button" onclick="sendQuickQuery('Tell me more about Wolayta culture')">More</button>
+        </div>
+        <div class="chat-box" id="chatBox"></div>
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="Type your question...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // Sample knowledge base with greetings and general responses
+        const knowledgeBase = {
+            // Basic greetings
+            "hi": "Hello! I'm your Wolayta tourism assistant. How can I help you today?",
+            "hello": "Hi there! I'm here to help you learn about Wolayta. What would you like to know?",
+            "hey": "Hey! I'm your friendly Wolayta guide. What can I tell you about this amazing region?",
+            "good morning": "Good morning! Ready to explore Wolayta together?",
+            "good afternoon": "Good afternoon! How can I assist you with information about Wolayta?",
+            "good evening": "Good evening! Looking forward to sharing Wolayta's wonders with you!",
+            
+            // Overview
+            "overview": "Wolayta is a vibrant region in southern Ethiopia known for its rich cultural heritage, stunning landscapes, and warm hospitality. The region features Mount Damota, traditional villages, and the bustling city of Sodo.",
+            
+            // Attractions
+            "attractions": "Key attractions in Wolayta include: 1) Mount Damota with its panoramic views and hiking trails, 2) Traditional Wolayta villages showcasing authentic culture, 3) Sodo city's markets and cultural centers, 4) Ancient archaeological sites, 5) Beautiful landscapes and natural wonders.",
+            "mount_damota": "Mount Damota is a prominent landmark offering breathtaking views of the surrounding region. Visitors can enjoy guided hikes, bird watching, and experiencing local flora and fauna. The mountain holds cultural significance for the Wolayta people.",
+            "cultural_sites": "Wolayta's cultural sites include traditional houses, historical monuments, and sacred places. Each site tells a unique story about Wolayta's heritage and traditions.",
+            
+            // Culture and Traditions
+            "culture": "Wolayta culture is characterized by its unique traditions, colorful festivals, traditional music and dance, distinctive clothing, and strong community bonds. The people are known for their hospitality and rich cultural practices.",
+            "festivals": "Wolayta celebrates various traditional festivals throughout the year, featuring cultural performances, traditional ceremonies, and community gatherings. These events showcase local customs, music, dance, and traditional attire.",
+            "arts_crafts": "Wolayta artisans are renowned for their skilled craftsmanship in pottery, weaving, woodcarving, and traditional textile making. Visitors can observe artisans at work and purchase authentic handicrafts.",
+            
+            // Practical Information
+            "best_time": "The best time to visit Wolayta is during the dry season (October to May) when weather conditions are ideal for outdoor activities and cultural experiences. The region enjoys a moderate climate year-round.",
+            "getting_there": "Wolayta is accessible by road from major Ethiopian cities. Regular bus services connect Sodo with Addis Ababa and other regional centers. Local transportation options include minibuses and tuk-tuks.",
+            "local_customs": "Visitors are encouraged to respect local customs: 1) Dress modestly, 2) Ask permission before taking photographs, 3) Remove shoes when entering homes, 4) Accept traditional coffee ceremony invitations, 5) Greet elders with respect.",
+            
+            // Food and Cuisine
+            "food": "Wolayta cuisine is diverse and flavorful, featuring traditional dishes like: 1) Kurkufa - a special bread, 2) Fosese - fermented ensete food, 3) Duncame - traditional sauce, 4) Local dairy products, 5) Various meat dishes prepared with unique spices.",
+            "traditional_dishes": "Traditional Wolayta dishes are prepared using local ingredients and time-honored cooking methods. Popular dishes include Kurkufa, Fosese, and various meat preparations served with traditional accompaniments.",
+            "restaurants": "Sodo and other towns in Wolayta offer various dining options, from traditional restaurants serving local cuisine to modern establishments. Many hotels also feature restaurants serving both local and international dishes.",
+            
+            // Accommodation
+            "accommodation": "Wolayta offers various accommodation options including: 1) Modern hotels in Sodo city, 2) Traditional guesthouses in villages, 3) Mid-range hotels with basic amenities, 4) Eco-lodges near natural attractions, 5) Homestay opportunities with local families.",
+            "hotels": "Sodo city features several comfortable hotels with modern amenities. Options range from budget-friendly guesthouses to higher-end hotels with restaurants, conference facilities, and business services.",
+            "homestays": "Experience authentic Wolayta culture through homestay programs where visitors can live with local families, participate in daily activities, and learn about traditional customs firsthand.",
+            
+            // Transportation
+            "transportation": "Transportation options in Wolayta include: 1) Regular bus services from major cities, 2) Local minibuses between towns, 3) Tuk-tuks and bajaj for short distances, 4) Car rentals available in Sodo, 5) Organized tours with transportation included.",
+            "local_transport": "Within Wolayta, especially in Sodo, tuk-tuks and bajaj provide convenient local transportation. Minibuses connect different towns and villages throughout the region.",
+            "travel_tips": "Travel tips for Wolayta: 1) Book accommodation in advance during peak seasons, 2) Carry cash as ATMs are limited, 3) Learn basic local phrases, 4) Respect local customs and dress codes, 5) Consider hiring a local guide for cultural insights.",
+            
+            // Activities and Experiences
+            "activities": "Popular activities in Wolayta include: 1) Cultural tours of traditional villages, 2) Hiking Mount Damota, 3) Shopping at local markets, 4) Participating in coffee ceremonies, 5) Learning traditional crafts, 6) Photography tours.",
+            "hiking": "Mount Damota offers excellent hiking opportunities with trails suitable for different fitness levels. Guided hikes are recommended and typically take 3-6 hours depending on the route and pace.",
+            "shopping": "Shopping opportunities include traditional markets in Sodo and other towns, where visitors can find local crafts, textiles, pottery, and agricultural products. The best market days are typically weekends.",
+            
+            // Safety and Emergency
+            "safety": "Wolayta is generally a safe destination for tourists. Basic precautions include: 1) Keep valuables secure, 2) Use registered guides, 3) Carry emergency contacts, 4) Stay hydrated, 5) Respect local customs.",
+            "emergency": "Emergency contacts: Police: 911, Tourist Police: +251-XX-XXXXXXX, Sodo Hospital: +251-XX-XXXXXXX. Keep these numbers handy and save local emergency contacts provided by your accommodation.",
+            "health": "Health tips: 1) Drink bottled water, 2) Carry basic medical supplies, 3) Use sunscreen and insect repellent, 4) Have travel insurance, 5) Know the location of nearest medical facilities.",
+            
+            // Query Processing and Context Matching
+            "what can i do": "There are many exciting activities in Wolayta! You can hike Mount Damota, explore traditional villages, experience local culture, try authentic cuisine, shop at markets, and participate in cultural ceremonies. Would you like specific details about any of these activities?",
+            "where to stay": "Wolayta offers various accommodation options from modern hotels in Sodo to traditional guesthouses and homestays. Would you like to know more about specific types of accommodation?",
+            "how to get there": "You can reach Wolayta by regular bus services from major Ethiopian cities, especially Addis Ababa. Within the region, local transport options include minibuses and tuk-tuks. Would you like detailed transportation information?",
+            "what to eat": "Wolayta cuisine is famous for traditional dishes like Kurkufa (special bread), Fosese (fermented ensete food), and Duncame (traditional sauce). Would you like to learn more about specific dishes or restaurants?",
+            "is it safe": "Yes, Wolayta is generally safe for tourists. We recommend basic precautions like keeping valuables secure and using registered guides. Would you like more specific safety tips?",
+            "best time to visit": "The best time to visit Wolayta is during the dry season (October to May) when weather conditions are ideal for outdoor activities and cultural experiences. Would you like more details about seasonal activities?",
+            
+            // Wolayta information
+            "what is wolayta": "Wolayta (also spelled Wolaytta) is a region in southern Ethiopia known for its rich cultural heritage, traditional practices, and beautiful landscapes. It is home to the Wolayta people who have preserved their unique culture and traditions for generations.",
+            "tourism in wolayta": "Wolayta offers diverse tourist attractions including the historic Waka Stone Churches, the vibrant Gifa cultural festival, traditional Wolayta houses, and the scenic Mount Damota. Visitors can experience local cuisine, traditional music and dance, and the warm hospitality of the Wolayta people.",
+            "wolayta overview": "Wolayta is a culturally rich region in southern Ethiopia featuring historic sites like the Waka Stone Churches, natural attractions like Mount Damota, and vibrant cultural festivals. The region is known for its traditional architecture, unique cuisine, and the welcoming Wolayta people who maintain their ancestral customs while embracing modern development.",
+            "attractions in wolayta": "Key attractions in Wolayta include: 1) Waka Stone Churches - ancient rock-hewn churches with historical significance, 2) Mount Damota - offering panoramic views and hiking opportunities, 3) Traditional Wolayta Houses - showcasing unique architectural designs, 4) Local Markets - displaying colorful crafts and traditional items, 5) Gifa Festival - celebrating Wolayta culture through music, dance, and ceremonies.",
+            "core purposes": "Visit Wolayta's core purposes include: 1) Promoting sustainable tourism development that benefits local communities, 2) Preserving and showcasing Wolayta's rich cultural heritage and traditions, 3) Supporting local artisans and cultural practitioners, 4) Developing eco-friendly tourism infrastructure aligned with Ethiopia's Digital Ethiopia 2025 strategy, 5) Creating authentic cultural experiences through community-based tourism initiatives.",
+            "cultural preservation": "Visit Wolayta prioritizes cultural preservation through: 1) Documentation of traditional practices and oral histories, 2) Support for local craftspeople and artisans, 3) Promotion of traditional festivals and ceremonies, 4) Protection of historical sites and artifacts, 5) Education programs about Wolayta culture for visitors and younger generations.",
+            "food and cuisine": "Wolayta cuisine features unique dishes like Qinche (traditional porridge), Duncame (special bread), and various spicy stews. Local restaurants offer authentic dining experiences where visitors can taste these traditional delicacies.",
+            "accommodation": "Visitors can choose from various accommodation options including modern hotels in Sodo city, eco-lodges near Mount Damota, and traditional guesthouses offering authentic Wolayta hospitality experiences.",
+            "transportation": "Wolayta is accessible by road from Addis Ababa, with regular bus services to Sodo city. Local transportation options include bajaj (three-wheeled vehicles) and rental cars for exploring the region.",
+            "best time to visit": "The best time to visit Wolayta is during the dry season (October to May) when the weather is pleasant for outdoor activities. The Gifa Festival usually takes place in September, making it another popular time to visit."
+        };
+
+        // Add message to chat
+        function addMessage(text, isUser = false) {
+            const chatBox = document.getElementById("chatBox");
+            if (!chatBox) {
+                console.error("Error: chatBox element not found!");
+                return;
+            }
+            const messageDiv = document.createElement("div");
+            messageDiv.classList.add("message");
+            messageDiv.classList.add(isUser ? "user-message" : "bot-message");
+            messageDiv.textContent = text;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            console.log(`Added message: ${text} (${isUser ? "User" : "Bot"})`);
+        }
+
+        // Retrieve knowledge from the knowledge base with improved matching
+        function retrieveKnowledge(query) {
+            const queryLower = query.toLowerCase();
+            let bestMatch = null;
+            let maxMatchLength = 0;
+
+            // First check for exact matches
+            for (let key in knowledgeBase) {
+                if (queryLower === key.toLowerCase()) {
+                    console.log(`Exact match found for "${query}": ${knowledgeBase[key]}`);
+                    return knowledgeBase[key];
+                }
+            }
+
+            // Then check for partial matches
+            for (let key in knowledgeBase) {
+                const keyLower = key.toLowerCase();
+                if (queryLower.includes(keyLower) || keyLower.includes(queryLower)) {
+                    // Select the longest matching key to ensure most specific match
+                    if (key.length > maxMatchLength) {
+                        maxMatchLength = key.length;
+                        bestMatch = key;
+                    }
+                }
+            }
+
+            if (bestMatch) {
+                console.log(`Best match found for "${query}": ${knowledgeBase[bestMatch]}`);
+                return knowledgeBase[bestMatch];
+            }
+
+            // Check for topic-related keywords
+            const topics = {
+                food: ['eat', 'food', 'cuisine', 'dish', 'restaurant', 'meal'],
+                accommodation: ['stay', 'hotel', 'lodge', 'guesthouse', 'sleep'],
+                transport: ['travel', 'transport', 'bus', 'car', 'how to get'],
+                attractions: ['visit', 'see', 'attraction', 'place', 'site', 'location']
+            };
+
+            for (let topic in topics) {
+                if (topics[topic].some(keyword => queryLower.includes(keyword))) {
+                    return knowledgeBase[topic === 'transport' ? 'transportation' : topic];
+                }
+            }
+
+            console.log(`No specific knowledge found for "${query}"`);
+            return "I'm sorry, I don't have specific information about that. Please try asking about Wolayta's tourism, attractions, food, accommodation, or transportation.";
+        }
+
+        // API call function with improved context handling and AI processing
+        async function callGrokAPI(query, context) {
+            // Check if it's a basic greeting
+            const greetings = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening'];
+            if (greetings.some(greeting => query.toLowerCase().includes(greeting))) {
+                return context; // Return the greeting response from knowledge base
+            }
+
+            try {
+                // Prepare the prompt with context and query
+                const prompt = `Based on our knowledge base about Wolayta, regarding your question "${query}",\n\n${context}\n\nPlease provide a response.`;
+                
+                // Here you would make the actual API call to your AI service
+                // For demonstration, we'll simulate an AI response by processing the context
+                let aiResponse = '';
+                
+                if (context === "No specific info found. Providing general response.") {
+                    // If no context found, generate a more helpful response
+                    aiResponse = `I don't have specific information about "${query}", but I can help you with information about Wolayta's tourism, culture, attractions, accommodation, or transportation. What would you like to know about these topics?`;
+                } else {
+                    // Process the context to create a more natural response
+                    // Extract key information from context and format it based on the query
+                    const keywords = query.toLowerCase().split(' ');
+                    const contextLines = context.split('.');
+                    
+                    // Filter relevant information based on keywords
+                    const relevantInfo = contextLines.filter(line => 
+                        keywords.some(keyword => 
+                            line.toLowerCase().includes(keyword) && keyword.length > 3
+                        )
+                    );
+                    
+                    if (relevantInfo.length > 0) {
+                        // Combine and format the relevant information
+                        aiResponse = relevantInfo
+                            .join('. ')
+                            .replace(/^\s+|\s+$/g, '') // Trim whitespace
+                            .replace(/\s+/g, ' '); // Normalize spaces
+                        
+                        // Add a natural language opener based on the query type
+                        const queryStarters = {
+                            what: "Here's what you should know about",
+                            where: "You can find",
+                            how: "Here's how",
+                            when: "The best time for",
+                            why: "The reason is"
+                        };
+                        
+                        const queryType = keywords.find(word => queryStarters[word]) || 'what';
+                        const opener = queryStarters[queryType] || "Here's the information about";
+                        
+                        // Format the response as a conversation with the knowledge base
+                        const formattedQuery = query.charAt(0).toUpperCase() + query.slice(1);
+                        aiResponse = `Based on our knowledge base about Wolayta, regarding your question "${formattedQuery}": ${aiResponse}`;
+                        
+                        // Add follow-up suggestions based on the context
+                        const suggestedTopics = ['attractions', 'culture', 'food', 'accommodation', 'transportation']
+                            .filter(topic => !query.toLowerCase().includes(topic));
+                        
+                        if (suggestedTopics.length > 0) {
+                            aiResponse += `\n\nWould you like to know more about ${suggestedTopics.slice(0, 2).join(' or ')} in Wolayta?`;
+                        }
+                    } else {
+                        aiResponse = context; // Fallback to original context if no relevant info found
+                    }
+                }
+                
+                return aiResponse;
+                
+            } catch (error) {
+                console.error('Error in callGrokAPI:', error);
+                return "I apologize, but I encountered an error processing your request. Please try again.";
+            }
+        }
+
+        // Handle sending a message
+        async function sendMessage() {
+            const userInput = document.getElementById("userInput");
+            if (!userInput) {
+                console.error("Error: userInput element not found!");
+                return;
+            }
+            const query = userInput.value.trim();
+            if (!query) {
+                console.log("No input provided");
+                return;
+            }
+
+            addMessage(query, true);
+            userInput.value = "";
+
+            const typingIndicator = document.createElement("div");
+            typingIndicator.className = "typing-indicator";
+            typingIndicator.innerHTML = "<span></span><span></span><span></span>";
+            chatBox.appendChild(typingIndicator);
+
+            try {
+                const context = retrieveKnowledge(query);
+                const response = await callGrokAPI(query, context);
+                chatBox.removeChild(typingIndicator);
+                
+                if (response) {
+                    addMessage(response);
+                } else {
+                    addMessage("I'm sorry, I couldn't understand your question. Please try asking about Wolayta's tourism, culture, or attractions.");
+                }
+            } catch (error) {
+                console.error('Error processing message:', error);
+                chatBox.removeChild(typingIndicator);
+                addMessage("I apologize, but something went wrong. Please try again.");
+            }
+        }
+
+        // Function to handle quick query buttons
+        function sendQuickQuery(query) {
+            const userInput = document.getElementById("userInput");
+            if (userInput) {
+                userInput.value = query;
+                sendMessage();
+            }
+        }
+
+        // Allow pressing Enter to send
+        document.getElementById("userInput").addEventListener("keypress", (e) => {
+            if (e.key === "Enter") sendMessage();
+        });
+
+        // Initial message to confirm it’s working
+        addMessage("Chatbot loaded successfully! Ask me anything.");
+    </script>
+</body>
+</html>
